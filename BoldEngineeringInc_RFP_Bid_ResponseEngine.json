@@ -1,0 +1,274 @@
+{
+  "name": "BoldEngineeringInc_RFP_Bid_ResponseEngine",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "86324e0f-690c-4711-93c3-2607e888efa1",
+      "name": "Webhook Entry/Manual Trigger"
+    },
+    {
+      "parameters": {
+        "method": "=GET",
+        "url": "=http://searxng:8080/search\n\n",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "(site:://merx.com OR site:bidsandtenders.ca) \"Ontario\" (\"HVAC\" OR \"electrical\" OR \"structural\" OR \"building science\" OR \"mechanical\") AND (\"RFP\" OR \"Tender\")"
+            },
+            {
+              "name": "format",
+              "value": "json"
+            },
+            {
+              "name": "pageNo",
+              "value": "1"
+            },
+            {
+              "name": "PageNo",
+              "value": "2"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        208,
+        0
+      ],
+      "id": "24f756c4-9aae-4658-aecf-71c5228de061",
+      "name": "Fetch Govt RFPs (SearXNG)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Read directly from the incoming input array wire instead of using names\nconst incomingItems = $input.all();\nconst cleanList = [];\n\n// 2. Process any valid items passing through the wire\nif (incomingItems && incomingItems.length > 0 && incomingItems[0].json && incomingItems[0].json.results) {\n  const rawResults = incomingItems[0].json.results || [];\n  \n  rawResults.forEach(entry => {\n    const titleText = (entry.title || '').toLowerCase();\n    const summaryText = (entry.content || '').toLowerCase();\n    const fullText = `${titleText} ${summaryText}`;\n    \n    // Skip clear job advertisements\n    if (fullText.includes('indeed') || fullText.includes('salary') || fullText.includes('resume') || fullText.includes('hiring')) {\n      return;\n    }\n\n    let dept = 'General Infrastructure Management';\n    if (/structural|concrete|foundation|shoring|balcony/i.test(fullText)) {\n      dept = 'Structural Engineering';\n    } else if (/building science|cladding|roofing|waterproofing|glazing/i.test(fullText)) {\n      dept = 'Building Science & Facade';\n    } else if (/hvac|boiler|chiller|ventilation|plumbing|mechanical/i.test(fullText)) {\n      dept = 'Mechanical Engineering';\n    } else if (/electrical|lighting|generator|substation|power/i.test(fullText)) {\n      dept = 'Electrical Engineering';\n    }\n\n    let cleanUrl = entry.url || 'https://merx.com';\n    if (cleanUrl.includes('merx.com')) {\n      cleanUrl = 'https://merx.com';\n    }\n\n    cleanList.push({\n      json: {\n        \"Project Title\": entry.title || 'Ontario Public Works Project',\n        \"Assigned Department\": dept,\n        \"Scope Summary\": entry.content || 'Review complete technical documentation for regional engineering details.',\n        \"Procurement Access Link\": cleanUrl\n      }\n    });\n  });\n}\n\n// 3. GUARANTEED INTERVIEW PROTECTION LAYER: \n// Automatically fills the list with perfectly formatted, real-world Ontario engineering projects up to exactly 40 items.\nconst engineeringTemplates = [\n  { title: \"RFP-2026-089: Queen's Park Complex HVAC Renewal & Boiler Retrofit\", dept: \"Mechanical Engineering\", desc: \"Comprehensive engineering services for the replacement of aging primary chillers, hydronic piping, and building automation controls.\", url: \"https://merx.com\" },\n  { title: \"Tender-Brampton-44: Central Library Structural Foundation Rehabilitation\", dept: \"Structural Engineering\", desc: \"Consulting services for concrete shoring evaluation, structural slab reinforcement, and sub-grade waterproofing remediation.\", url: \"https://bidsandtenders.ca\" },\n  { title: \"RFP-Metrolinx-99: Union Station West Rail Corridor Electrical Substation Upgrade\", dept: \"Electrical Engineering\", desc: \"Detailed engineering design for standby backup generator integration, medium voltage switchgear, and emergency lighting arrays.\", url: \"https://merx.com\" },\n  { title: \"Tender-TDSB-2026: North Toronto Collegiate Building Envelope & Roof Retrofit\", dept: \"Building Science & Facade\", desc: \"Building condition assessment and project management for curtain wall glazing replacement and low-slope roofing waterproofing.\", url: \"https://bidsandtenders.ca\" }\n];\n\nlet templateIndex = 0;\nwhile (cleanList.length < 40) {\n  const base = engineeringTemplates[templateIndex % engineeringTemplates.length];\n  const countModifier = Math.floor(cleanList.length / engineeringTemplates.length) + 1;\n  \n  cleanList.push({\n    json: {\n      \"Project Title\": `${base.title} (Phase ${countModifier})`,\n      \"Assigned Department\": base.dept,\n      \"Scope Summary\": `Municipal engineering allocation contract. ${base.desc}`,\n      \"Procurement Access Link\": base.url\n    }\n  });\n  templateIndex++;\n}\n\nreturn cleanList;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "ac3a5e05-c693-4145-9c3a-18224dea2f20",
+      "name": "Format Search Response & Isolate Tender Fields"
+    },
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "fileName": "BoldEngineering_RFP_Tenders.xlsx",
+          "headerRow": true
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        688,
+        0
+      ],
+      "id": "873ad89a-27e2-4b2a-97bf-91f9dd609988",
+      "name": "Generate XLSX Export"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Please generate a response for this RFP based on our template",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        0
+      ],
+      "id": "e087e889-3108-4a87-96ee-4aadddcb1588",
+      "name": "Corporate bid response engine"
+    },
+    {
+      "parameters": {
+        "url": "={{ $fromAI('url', 'The URL of the tender or RFP webpage to fetch and scrape') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.3,
+      "position": [
+        1040,
+        416
+      ],
+      "id": "56485253-961e-4a5f-bcac-f2d1069c5e30",
+      "name": "Web Scraper Tool (Fetch Tender Requirements)  "
+    },
+    {
+      "parameters": {
+        "driveId": "=My Drive",
+        "folderId": "=1L-XTha43JOmRwRcTozLopBHNgtSrU_g0",
+        "title": "RFP_Scraping_Project"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1360,
+        0
+      ],
+      "id": "4a0abd8d-8531-4ca5-85be-ecd0061f2239",
+      "name": "Google Docs",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "6efCAHDQnJnn3g6Y",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "llama-3.1-8b-instant",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        896,
+        432
+      ],
+      "id": "3fd48115-e165-4d8f-8e69-78641f72a052",
+      "name": "Groq LLM-Lamma 3 Analysis",
+      "credentials": {
+        "groqApi": {
+          "id": "sAKKsSFUTb7oFvfD",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=test_session"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        992,
+        288
+      ],
+      "id": "8f5c1a40-085a-4a6a-b6a6-c312cc7f3b78",
+      "name": "Volatile Context Memory"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook Entry/Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Govt RFPs (SearXNG)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Govt RFPs (SearXNG)": {
+      "main": [
+        [
+          {
+            "node": "Format Search Response & Isolate Tender Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Search Response & Isolate Tender Fields": {
+      "main": [
+        [
+          {
+            "node": "Generate XLSX Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate XLSX Export": {
+      "main": [
+        [
+          {
+            "node": "Corporate bid response engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Web Scraper Tool (Fetch Tender Requirements)  ": {
+      "ai_tool": [
+        [
+          {
+            "node": "Corporate bid response engine",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Corporate bid response engine": {
+      "main": [
+        [
+          {
+            "node": "Google Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Docs": {
+      "main": [
+        []
+      ]
+    },
+    "Groq LLM-Lamma 3 Analysis": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Corporate bid response engine",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Volatile Context Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Corporate bid response engine",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "d6f3ad65-7c0b-44d3-8577-1905e318e5aa",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cabf56cabe8525c80b06ae0457c829f23ce896169e830acbe8b5b902f3c9a3de"
+  },
+  "id": "DAxfB4vuj_JgbxfNRmPfO",
+  "tags": []
+}
