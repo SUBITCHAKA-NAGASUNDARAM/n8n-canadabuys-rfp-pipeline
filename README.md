@@ -1,5 +1,17 @@
 # n8n-canadabuys-rfp-pipeline
+
 An automated, parallel n8n pipeline that tracks bulk CanadaBuys RFP data and generates targeted procurement proposals using Llama 3.3 70B.
+
+---
+
+## 📺 Project Walkthrough & Video Demo
+
+[![Watch Walkthrough Video](https://img.shields.io/badge/Watch_Demo-Loom_Walkthrough-625DF5?style=for-the-badge&logo=loom)](https://www.loom.com/share/f341ffc56fd04249a9f0b50be8452677)
+
+*Click the button above to watch a detailed 2-minute architectural walkthrough of the running n8n pipeline, parallel branching logic, and output files.*
+
+---
+
 # Autonomous RFP Triage & Parallel AI Proposal Generation Pipeline
 
 An enterprise-grade, asynchronous backend automation pipeline built in n8n that ingests public sector procurement feeds (CanadaBuys), executes parallel data pipelines, and leverages high-tier Generative AI to instantly draft compliant, structured bid proposals.
